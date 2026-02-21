@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@theme {
+  --color-norton-yellow: #FFD300;
+  --color-norton-dark: #121212;
+  --color-norton-gray: #1E1E1E;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-norton-dark text-white font-sans;
+  }
+}
+
+.norton-gradient {
+  background: linear-gradient(135deg, #FFD300 0%, #E6BE00 100%);
+}
+
+.glass-card {
+  @apply bg-norton-gray/50 border border-white/5 backdrop-blur-md;
+}

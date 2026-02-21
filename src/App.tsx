@@ -1,0 +1,352 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { 
+  Shield, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Search, 
+  RefreshCw, 
+  Settings, 
+  History, 
+  Lock, 
+  Globe, 
+  Cpu, 
+  Bell,
+  ChevronRight,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  Info
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
+import Markdown from 'react-markdown';
+
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+
+const STATIC_TIPS = [
+  "Enable two-factor authentication (2FA) on all your important accounts to add an extra layer of security.",
+  "Be cautious of unsolicited emails or messages asking for personal information or containing suspicious links.",
+  "Keep your operating system and all installed software up to date to protect against known vulnerabilities.",
+  "Use a reputable password manager to create and store strong, unique passwords for every site you use.",
+  "Regularly back up your important files to an external drive or a secure cloud storage service.",
+  "Avoid using public Wi-Fi for sensitive activities like banking or shopping unless you use a VPN.",
+  "Check your privacy settings on social media platforms to control who can see your personal information.",
+  "Be wary of downloading software or files from untrusted sources; they may contain malware.",
+  "Lock your computer or mobile device with a strong PIN, password, or biometric authentication.",
+  "Review your financial statements regularly for any unauthorized transactions or suspicious activity."
+];
+
+type ScanStatus = 'idle' | 'scanning' | 'complete' | 'threats_found';
+
+const NortonLogo = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 100 100" 
+    className={className}
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="50" cy="50" r="40" stroke="#FFD300" strokeWidth="12" />
+    <path 
+      d="M30 50L45 65L75 35" 
+      stroke="black" 
+      strokeWidth="12" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+    />
+  </svg>
+);
+
+export default function App() {
+  const [scanStatus, setScanStatus] = useState<ScanStatus>('idle');
+  const [progress, setProgress] = useState(0);
+  const [securityTip, setSecurityTip] = useState<string>('');
+  const [loadingTip, setLoadingTip] = useState(false);
+
+  const fetchSecurityTip = async () => {
+    setLoadingTip(true);
+    
+    // If no AI key, use static tips
+    if (!ai) {
+      const randomTip = STATIC_TIPS[Math.floor(Math.random() * STATIC_TIPS.length)];
+      setTimeout(() => {
+        setSecurityTip(randomTip);
+        setLoadingTip(false);
+      }, 800);
+      return;
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: "Give me a short, professional security tip for a computer user. Keep it under 2 sentences.",
+      });
+      setSecurityTip(response.text || STATIC_TIPS[0]);
+    } catch (error) {
+      console.error('Error fetching security tip:', error);
+      setSecurityTip(STATIC_TIPS[Math.floor(Math.random() * STATIC_TIPS.length)]);
+    } finally {
+      setLoadingTip(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSecurityTip();
+  }, []);
+
+  const startScan = () => {
+    setScanStatus('scanning');
+    setProgress(0);
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setScanStatus('complete');
+          return 100;
+        }
+        return prev + 1;
+      });
+    }, 50);
+  };
+
+  return (
+    <div className="flex h-screen bg-norton-dark text-white overflow-hidden font-sans">
+      {/* Sidebar */}
+      <aside className="w-64 bg-black/40 border-r border-white/5 flex flex-col">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(255,211,0,0.2)]">
+            <NortonLogo className="w-8 h-8" />
+          </div>
+          <span className="font-bold text-lg tracking-tight">NORTON<span className="text-norton-yellow">360</span></span>
+        </div>
+
+        <nav className="flex-1 px-4 py-4 space-y-1">
+          <NavItem icon={<ShieldCheck size={20} />} label="Dashboard" active />
+          <NavItem icon={<Search size={20} />} label="Security Scan" />
+          <NavItem icon={<Globe size={20} />} label="Web Protection" />
+          <NavItem icon={<Lock size={20} />} label="Privacy Manager" />
+          <NavItem icon={<History size={20} />} label="Security History" />
+          <NavItem icon={<Cpu size={20} />} label="Performance" />
+        </nav>
+
+        <div className="p-4 border-t border-white/5">
+          <NavItem icon={<Settings size={20} />} label="Settings" />
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto relative">
+        {/* Header */}
+        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 sticky top-0 bg-norton-dark/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2 text-sm text-neutral-400">
+            <span>Home</span>
+            <ChevronRight size={14} />
+            <span className="text-white">Dashboard</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button className="p-2 hover:bg-white/5 rounded-full transition-colors relative">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-norton-yellow rounded-full"></span>
+            </button>
+            <div className="w-8 h-8 rounded-full bg-neutral-700 border border-white/10 flex items-center justify-center text-xs font-bold">
+              JD
+            </div>
+          </div>
+        </header>
+
+        <div className="p-8 max-w-6xl mx-auto space-y-8">
+          {/* Status Hero */}
+          <section className="relative overflow-hidden rounded-3xl bg-neutral-900 border border-white/5 p-8 flex items-center justify-between">
+            <div className="relative z-10 space-y-4 max-w-lg">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-semibold border border-green-500/20">
+                <CheckCircle2 size={14} />
+                System Protected
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight">You are <span className="text-norton-yellow">Safe</span></h1>
+              <p className="text-neutral-400 leading-relaxed">
+                Your system is currently being monitored for threats. All security modules are active and up to date.
+              </p>
+              <div className="flex gap-4 pt-2">
+                <button 
+                  onClick={startScan}
+                  disabled={scanStatus === 'scanning'}
+                  className="px-6 py-3 bg-norton-yellow text-black font-bold rounded-xl hover:bg-yellow-400 transition-all shadow-lg shadow-norton-yellow/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Search size={18} />
+                  Run Smart Scan
+                </button>
+                <button className="px-6 py-3 bg-white/5 hover:bg-white/10 font-semibold rounded-xl transition-all border border-white/10">
+                  View Details
+                </button>
+              </div>
+            </div>
+            
+            <div className="relative hidden md:block">
+              <motion.div 
+                animate={{ 
+                  scale: [1, 1.05, 1],
+                  rotate: [0, 2, 0]
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-64 h-64 bg-norton-yellow/10 rounded-full flex items-center justify-center relative"
+              >
+                <div className="absolute inset-0 border-2 border-dashed border-norton-yellow/20 rounded-full animate-spin-slow"></div>
+                <NortonLogo className="w-32 h-32" />
+              </motion.div>
+            </div>
+          </section>
+
+          {/* Scan Progress Overlay */}
+          <AnimatePresence>
+            {scanStatus === 'scanning' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="bg-norton-yellow/10 border border-norton-yellow/30 rounded-2xl p-6 space-y-4"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="animate-spin text-norton-yellow" size={20} />
+                    <span className="font-semibold">Scanning system files...</span>
+                  </div>
+                  <span className="font-mono text-norton-yellow">{progress}%</span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-norton-yellow"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Grid Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <SecurityCard 
+              icon={<Zap className="text-norton-yellow" />}
+              title="Quick Scan"
+              description="Check critical system areas for immediate threats."
+              action="Start"
+            />
+            <SecurityCard 
+              icon={<Lock className="text-norton-yellow" />}
+              title="Safe Web"
+              description="Blocks malicious websites and phishing attempts."
+              action="Manage"
+              status="Active"
+            />
+            <SecurityCard 
+              icon={<RefreshCw className="text-norton-yellow" />}
+              title="Live Update"
+              description="Keep your virus definitions and software current."
+              action="Check"
+              status="Up to date"
+            />
+          </div>
+
+          {/* AI Security Insight */}
+          <section className="bg-gradient-to-br from-norton-gray to-black border border-white/5 rounded-3xl p-8">
+            <div className="flex items-start gap-6">
+              <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 border border-white/10">
+                <Info className="text-norton-yellow" size={24} />
+              </div>
+              <div className="space-y-4 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">Security Insight</h3>
+                  <button 
+                    onClick={fetchSecurityTip}
+                    disabled={loadingTip}
+                    className="text-xs text-norton-yellow hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw size={12} className={loadingTip ? 'animate-spin' : ''} />
+                    Refresh Tip
+                  </button>
+                </div>
+                <div className="text-neutral-300 italic min-h-[3rem]">
+                  {loadingTip ? (
+                    <div className="flex gap-2">
+                      <div className="w-2 h-2 bg-norton-yellow/50 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-norton-yellow/50 rounded-full animate-bounce delay-100"></div>
+                      <div className="w-2 h-2 bg-norton-yellow/50 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                  ) : (
+                    <Markdown>{securityTip}</Markdown>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Footer Info */}
+          <footer className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-neutral-500 text-xs">
+            <div className="flex gap-6">
+              <span>© 2026 NORTON360 Security</span>
+              <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+              <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Cloud Protection: Connected</span>
+            </div>
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+  return (
+    <a 
+      href="#" 
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${
+        active 
+          ? 'bg-norton-yellow text-black font-bold' 
+          : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+      }`}
+    >
+      <span className={active ? 'text-black' : 'text-neutral-500 group-hover:text-norton-yellow transition-colors'}>
+        {icon}
+      </span>
+      <span>{label}</span>
+    </a>
+  );
+}
+
+function SecurityCard({ icon, title, description, action, status }: { 
+  icon: React.ReactNode, 
+  title: string, 
+  description: string, 
+  action: string,
+  status?: string
+}) {
+  return (
+    <div className="bg-neutral-900 border border-white/5 p-6 rounded-2xl hover:border-norton-yellow/30 transition-all group">
+      <div className="flex justify-between items-start mb-4">
+        <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 group-hover:border-norton-yellow/20 transition-colors">
+          {icon}
+        </div>
+        {status && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-green-500 bg-green-500/10 px-2 py-1 rounded">
+            {status}
+          </span>
+        )}
+      </div>
+      <h3 className="font-bold text-lg mb-2">{title}</h3>
+      <p className="text-neutral-400 text-sm mb-6 leading-relaxed">
+        {description}
+      </p>
+      <button className="w-full py-2 bg-white/5 hover:bg-norton-yellow hover:text-black font-semibold rounded-lg transition-all border border-white/10 hover:border-norton-yellow">
+        {action}
+      </button>
+    </div>
+  );
+}
+
